@@ -6,8 +6,8 @@ import random
 
 
 class Game(object):
-    def __init__(self):
-        self.game_id = str(uuid.uuid1()).split('-')[0]
+    def __init__(self, game_id):
+        self.game_id = game_id
         self.game_status = 0
         self.game_type = 0
         self.player_list = []
@@ -36,6 +36,9 @@ class Game(object):
     def add_player(self, player_id):
         self.player_list.append(player_id)
 
+    def del_player(self, player_id):
+        self.player_list.remove(player_id)
+
 class Character(Enum):
     Nill = '无'
     hhd = '花蝴蝶'
@@ -56,8 +59,9 @@ class Character(Enum):
 
 
 class Player(object):
-    def __init__(self, player_id):
+    def __init__(self, player_id, player_nn):
         self.player_id = player_id
+        self.player_nn = player_nn
         self.player_status = 0
         self.player_character = 0
         self.player_target = None
@@ -70,6 +74,9 @@ class Player(object):
 
     def get_player_id(self):
         return self.player_id
+
+    def get_player_nn(self):
+        return self.player_nn
 
     def get_player_status(self):
         return self.player_status
@@ -160,7 +167,7 @@ class Player(object):
 
 def send_message(dest, content):
     time.sleep(0.2)
-    print(content + ' is being sended to ' + dest)
+    print(content + ' is being sent to ' + dest)
     itchat.send(msg=content, toUserName=dest)
 
 
@@ -178,57 +185,74 @@ def main():
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=True)
     def text_reply(msg):
         print(msg)
-        if msg['isAt'] and msg['FromUserName'] == '@@803d052409c5d1d19368552f05d39ee69340002deb9952993c92f2b03afcf8b2':
+        if msg['isAt']:
             content = msg['Content'].split()[2]
             if content == '创建游戏':
-                game = Game()
-                game_list.append(game)
-                send_message(msg['FromUserName'], '游戏 ' + game.get_game_id() + ' 创建')
-            elif len(content) == 8:
+                game_already_exist = False
                 for game in game_list:
-                    if content == game.get_game_id():
+                    if game.get_game_id() == msg['FromUserName']:
+                        game_already_exist = True
+                if not game_already_exist:
+                    game = Game(msg['FromUserName'])
+                    game_list.append(game)
+                    send_message(msg['FromUserName'], '游戏 ' + game.get_game_id() + ' 已创建')
+            for game in game_list:
+                if game.get_game_id() == msg['FromUserName']:
+                    if content == '开始游戏':
+                        random.shuffle(game.get_player_list())
+                        game.set_player_list(game.get_player_list())
+                        send_message(msg['FromUserName'], '玩家名单：\n' + '\n'.join(player.get_player_nn() for player in game.get_player_list()) + '\n身份发放开始')
+                        random.shuffle(CHARACTER)
+                        for index, player in enumerate(game.get_player_list()):
+                            player.set_player_character(CHARACTER[index])
+                            send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
+                        send_message(msg['FromUserName'], '身份发放完成\n请私戳法官进行夜间行动')
+                        game.set_game_status(1)
+                    elif content == '删除游戏':
+                        game_list.remove(game)
+                        send_message(msg['FromUserName'], '游戏 ' + game.game_id + ' 已删除')
+                    elif content == '玩家数量':
+                        send_message(msg['FromUserName'], '当前玩家数量：' + str(len(game.get_player_list())))
+                    elif content == '玩家列表':
+                        send_message(msg['FromUserName'], '\n'.join(player.get_player_nn() for player in game.get_player_list()))
+                    elif msg["ActualNickName"] == 'INT.ZC' and content == '强制添加':
+                            game.add_player(Player(msg['Content'].split()[3], msg['Content'].split()[3]))
+                            send_message(msg['FromUserName'], msg['Content'].split()[3] + ' 加入游戏')
+                    elif msg["ActualNickName"] == 'INT.ZC' and content == '强制移出':
+                        for player in game.get_player_list():
+                            if player.get_player_id() == msg['Content'].split()[3]:
+                                game.del_player(player)
+                        send_message(msg['FromUserName'], msg['Content'].split()[3] + ' 离开游戏')
+                    elif msg["ActualNickName"] == 'INT.ZC' and content == '游戏列表':
+                        send_message(msg['FromUserName'], ' '.join(game.get_game_id() for game in game_list))
+        for game in game_list:
+            if msg['FromUserName'] == game.get_game_id() and game.get_game_status() == 0:
+                content = msg['Content']
+                if content == '加入游戏':
+                    if msg['FromUserName'] == game.get_game_id():
                         player_already_exist = False
                         for player in game.get_player_list():
-                            if msg["ActualNickName"] == player.get_player_id():
+                            if msg["ActualUserName"] == player.get_player_id():
                                 player_already_exist = True
                         if player_already_exist:
-                            send_message(msg['FromUserName'], '@' + msg["ActualNickName"] + '\u2005' + '您已加入游戏' + game.get_game_id())
+                            send_message(msg['FromUserName'], '@' + msg["ActualNickName"] + '\u2005' + '您已加入游戏')
                         else:
-                            game.add_player(Player(msg["ActualNickName"]))
-                            send_message(msg['FromUserName'], '@' + msg["ActualNickName"] + '\u2005' + '加入游戏' + game.get_game_id())
-                            send_message(msg['FromUserName'], '当前玩家人数：' + str(len(game.get_player_list())))
-                    # else:
-                    #     send_message(msg['FromUserName'], '游戏' + content + '不存在')
-            elif msg["ActualNickName"] == 'INT.ZC' and content == '强制添加':
-                for game in game_list:
-                    if msg['Content'].split()[3] == game.get_game_id():
-                        game.add_player(Player(msg['Content'].split()[4]))
-                        send_message(msg['FromUserName'], msg["ActualNickName"] + ' 加入游戏' + game.get_game_id())
-                        send_message(msg['FromUserName'], '当前玩家人数：' + str(len(game.get_player_list())))
-                    # else:
-                    #     send_message(msg['FromUserName'], '游戏' + content + '不存在')
-            elif content == '删除游戏':
-                for game in game_list:
-                    if msg['Content'].split()[3] == game.get_game_id():
-                        send_message(msg['FromUserName'], game.get_player_list())
-            elif content == '玩家列表':
-                for game in game_list:
-                    if msg['Content'].split()[3] == game.get_game_id():
-                        send_message(msg['FromUserName'], ' '.join(player.get_player_id() for player in game.get_player_list()))
-            elif content == '游戏列表':
-                temp = []
-                for game in game_list:
-                    temp.append(game.get_game_id())
-                send_message(msg['FromUserName'], ' '.join(temp))
-            elif content == '开始游戏':
-                for game in game_list:
-                    if msg['Content'].split()[3] == game.get_game_id():
-                        send_message(msg['FromUserName'], ' '.join(player.get_player_id() for player in game.get_player_list()))
-                        game.set_player_list(random.shuffle(game.get_player_list()))
-                        send_message(msg['FromUserName'], ' '.join(player.get_player_id() for player in game.get_player_list()))
-                        random.shuffle(CHARACTER)
-                        send_message(msg['FromUserName'], ' '.join(CHARACTER))
-                        game.set_game_status(1)
+                            game.add_player(Player(msg["ActualUserName"], msg["ActualNickName"]))
+                            send_message(msg['FromUserName'], '@' + msg["ActualNickName"] + '\u2005' + '加入游戏')
+                if content == '退出游戏':
+                    if msg['FromUserName'] == game.get_game_id():
+                        player_exist = False
+                        for player in game.get_player_list():
+                            if msg["ActualUserName"] == player.get_player_id():
+                                player_exist = True
+                        if not player_exist:
+                            send_message(msg['FromUserName'], '@' + msg["ActualNickName"] + '\u2005' + '您还不是玩家')
+                        else:
+                            for player in game.get_player_list():
+                                if player.get_player_id() == msg["ActualUserName"]:
+                                    game.del_player(player)
+                            send_message(msg['FromUserName'], '@' + msg["ActualNickName"] + '\u2005' + '退出游戏')
+
     itchat.run()
 
 
