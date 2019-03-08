@@ -10,6 +10,7 @@ class Game(object):
         self.game_id = game_id
         self.game_status = 0
         self.game_type = 0
+        self.game_mode = False
         self.player_list = []
 
     def get_game_id(self):
@@ -26,6 +27,12 @@ class Game(object):
 
     def set_game_type(self, game_type):
         self.game_type = game_type
+
+    def get_game_mode(self):
+        return self.game_mode
+
+    def set_game_mode(self, game_mode):
+        self.game_mode = game_mode
 
     def get_player_list(self):
         return self.player_list
@@ -55,9 +62,6 @@ class Character(Enum):
     jz = '镜子'
     Master = '神'
 
-    def heal(self):
-        self.set_player_healed(True)
-
 
 class Player(object):
     def __init__(self, player_id, player_nn):
@@ -66,6 +70,7 @@ class Player(object):
         self.player_seat = 0
         self.player_status = 0
         self.player_character = 0
+        self.player_aims = None
         self.player_target = None
         self.player_hugged = False
         self.player_healed = False
@@ -97,6 +102,12 @@ class Player(object):
 
     def set_player_character(self, player_character):
         self.player_character = player_character
+
+    def get_player_aims(self):
+        return self.player_aims
+
+    def set_player_aims(self, player_aims):
+        self.player_aims = player_aims
 
     def get_player_target(self):
         return self.player_target
@@ -134,54 +145,68 @@ class Player(object):
     def set_player_muted(self, player_muted):
         self.player_muted = player_muted
 
+    def death(self):
+        self.set_player_status(0)
+        if self.get_player_character() in [Character.ss, Character.mfs, Character.sl]:
+            return False
+        return True
+
+    def hug(self):
+        if self.get_player_character() == Character.hhd:
+            pass
+
 
 CHARACTER6 = [Character.hhd, Character.jjs, Character.ys, Character.ss, Character.mfs, Character.sl]
 CHARACTER7 = [Character.hhd, Character.jjs, Character.ys, Character.jc, Character.ss, Character.mfs, Character.sl]
 GAME_LIST = []
 
 
-# def settlement():
-#     player_list = []
-#     player = Player(0000)
-#     player_list.append(player)
-#     for player in player_list:
-#
-#         if player.get_player_character() is Character.jc:
-#             jc_target = player.get_player_target()
-#         if player.get_player_character() is Character.jjs:
-#             jjs_target = player.get_player_target()
-#         if player.get_player_character() is Character.ys:
-#             ys_target = player.get_player_target()
-#         if player.get_player_character() is Character.ss:
-#             ss_target = player.get_player_target()
-#         if player.get_player_character() is Character.sl:
-#             sl_target = player.get_player_target()
-#         if player.get_player_character() is Character.sm:
-#             sm_target = player.get_player_target()
-#         if player.get_player_character() is Character.em:
-#             em_target = player.get_player_target()
-#         if player.get_player_character() is Character.wy:
-#             wy_target = player.get_player_target()
-#         if player.get_player_character() is Character.jz:
-#             jz_target = player.get_player_target()
-#
-#         if player.get_player_character() is Character.mfs:
-#             mfs_target = player.get_player_target()
-#             if mfs_target.get_player_hugged:
-#                 pass
-#             else:
-#                 player.get_player_target().set_player_target(None)
-#
-#         if player.get_player_character() is Character.hhd:
-#             hhd_target = player.get_player_target()
-#             if mfs_target is Character.hhd:
-#                 pass
+def settlement():
+    pass
 
 
 def send_message(dest, content):
     time.sleep(0.2)
     print(content + ' is being sent to ' + dest)
     itchat.send(msg=content, toUserName=dest)
+
+
+def add_player(game, group_id, player_id, player_nn):
+    if group_id == game.get_game_id():
+        player_already_exist = False
+        for player in game.get_player_list():
+            if player_id == player.get_player_id():
+                player_already_exist = True
+        if player_already_exist:
+            send_message(group_id, '@' + player_nn + '\u2005' + '您已加入游戏')
+        else:
+            game.add_player(Player(player_id, player_nn))
+            send_message(group_id, '@' + player_nn + '\u2005' + '加入游戏')
+
+
+def del_player(game, group_id, player_id, player_nn):
+    if group_id == game.get_game_id():
+        player_exist = False
+        for player in game.get_player_list():
+            if player_id == player.get_player_id():
+                player_exist = True
+        if not player_exist:
+            send_message(group_id, '@' + player_nn + '\u2005' + '您还不是玩家')
+        else:
+            for player in game.get_player_list():
+                if player.get_player_id() == player_id:
+                    game.del_player(player)
+            send_message(group_id, '@' + player_nn + '\u2005' + '离开游戏')
+
+
+def be_master(game, player_id):
+    is_alive_player = False
+    for player in game.get_player_list():
+        if player.get_player_id() == player_id and player.get_player_status() != 0:
+            is_alive_player = True
+    if not is_alive_player:
+        send_message(player_id, '\n'.join(
+            player.get_player_nn() + '的身份是：' + player.get_player_character() for player in game.get_player_list()))
 
 
 def create_game(group_id):
@@ -205,7 +230,8 @@ def start_game(game, group_id):
         random.shuffle(CHARACTER7)
         for index, player in enumerate(game.get_player_list()):
             player.name = CHARACTER7[index].name
-            CHARACTER7[index].name.set_player_character(CHARACTER7[index].value)
+            player.set_player_status(1)
+            game.set_game_mode(True)
             send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
     else:
         random.shuffle(CHARACTER6)
@@ -215,44 +241,17 @@ def start_game(game, group_id):
             send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
     game.set_game_status(1)
     send_message(group_id, '身份发放完成\n请私戳法官进行夜间行动')
-
-
-def add_player(game, group_id, user_id, user_nn):
-    if group_id == game.get_game_id():
-        player_already_exist = False
-        for player in game.get_player_list():
-            if user_id == player.get_player_id():
-                player_already_exist = True
-        if player_already_exist:
-            send_message(group_id, '@' + user_nn + '\u2005' + '您已加入游戏')
-        else:
-            game.add_player(Player(user_id, user_nn))
-            send_message(group_id, '@' + user_nn + '\u2005' + '加入游戏')
-
-
-def del_player(game, group_id, user_id, user_nn):
-    if group_id == game.get_game_id():
-        player_exist = False
-        for player in game.get_player_list():
-            if user_id == player.get_player_id():
-                player_exist = True
-        if not player_exist:
-            send_message(group_id, '@' + user_nn + '\u2005' + '您还不是玩家')
-        else:
-            for player in game.get_player_list():
-                if player.get_player_id() == user_id:
-                    game.del_player(player)
-            send_message(group_id, '@' + user_nn + '\u2005' + '离开游戏')
-
-
-def be_master(game, user_id):
-    is_alive_player = False
+    game.set_game_status(2)
     for player in game.get_player_list():
-        if player.get_player_id() == user_id and player.get_player_status() != 0:
-            is_alive_player = True
-    if not is_alive_player:
-        send_message(user_id, '\n'.join(
-            player.get_player_nn() + '的身份是：' + player.get_player_character() for player in game.get_player_list()))
+        send_message(player.get_player_id(), '请开始行动')
+
+
+def info_process(game, player_id, info):
+    for player in game.get_player_list():
+        if player.get_player_id() == player_id and player.get_player_status() != 0:
+            if info.split()[0] == '行动':
+                player.set_player_target(info.split()[1])
+                send_message(player_id, '行动目标设置为：' + str(player.get_player_target()))
 
 
 def main():
@@ -284,17 +283,18 @@ def main():
                         be_master(game, msg['ActualUserName'])
 
         for game in GAME_LIST:
-            if msg['FromUserName'] == game.get_game_id() and game.get_game_status() == 0:
+            if msg['FromUserName'] == game.get_game_id():
                 content = msg['Content']
-                if content == '加入':
-                    add_player(game, msg['FromUserName'], msg['ActualUserName'], msg['ActualNickName'])
-                elif content == '离开':
-                    del_player(game, msg['FromUserName'], msg['ActualUserName'], msg['ActualNickName'])
-                elif content == '玩家数量':
+                if game.get_game_status() == 0:
+                    if content == '加入':
+                        add_player(game, msg['FromUserName'], msg['ActualUserName'], msg['ActualNickName'])
+                    elif content == '离开':
+                        del_player(game, msg['FromUserName'], msg['ActualUserName'], msg['ActualNickName'])
+                if content == '玩家数量':
                     send_message(msg['FromUserName'], '当前玩家数量：' + str(len(game.get_player_list())))
                 elif content == '玩家列表':
                     send_message(msg['FromUserName'], '\n'.join(player.get_player_nn() for player in game.get_player_list()))
-                elif msg["ActualNickName"] == 'INT.ZC' and content == '强制添加':
+                elif msg["ActualNickName"] == 'INT.ZC' and content == '强制加入':
                     add_player(game, msg['FromUserName'], msg['Content'].split()[3], msg['Content'].split()[3])
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制移出':
                     del_player(game, msg['FromUserName'], msg['Content'].split()[3], msg['Content'].split()[3])
@@ -304,8 +304,7 @@ def main():
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=False)
     def private_op(msg):
         if len(GAME_LIST) == 1 and GAME_LIST[0].get_game_status() == 1:
-            for player in GAME_LIST[0].get_player_list():
-                print(player.get_player_character())
+            info_process(GAME_LIST[0], msg['FromUserName'], msg['Content'])
 
     itchat.run()
 
