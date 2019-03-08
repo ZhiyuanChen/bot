@@ -245,6 +245,16 @@ def del_player(game, group_id, user_id, user_nn):
             send_message(group_id, '@' + user_nn + '\u2005' + '离开游戏')
 
 
+def be_master(game, user_id):
+    is_alive_player = False
+    for player in game.get_player_list():
+        if player.get_player_id() == user_id and player.get_player_status() != 0:
+            is_alive_player = True
+    if not is_alive_player:
+        send_message(user_id, '\n'.join(
+            player.get_player_nn() + '的身份是：' + player.get_player_character() for player in game.get_player_list()))
+
+
 def main():
     itchat.auto_login(hotReload=True, enableCmdQR=False)
     group_chat_dict = itchat.search_chatrooms(name='HHDbot')
@@ -271,7 +281,8 @@ def main():
                         GAME_LIST.remove(game)
                         send_message(msg['FromUserName'], '游戏 ' + game.game_id + ' 已删除')
                     elif content == '法官':
-                        send_message(msg['ActualUserName'],  '\n'.join(player.get_player_nn() + '的身份是：' + player.get_player_character() for player in game.get_player_list()))
+                        be_master(game, msg['ActualUserName'])
+
         for game in GAME_LIST:
             if msg['FromUserName'] == game.get_game_id() and game.get_game_status() == 0:
                 content = msg['Content']
