@@ -42,12 +42,6 @@ class Game(object):
     def set_player_list(self, player_list):
         self.player_list = player_list
 
-    def add_player(self, player_id):
-        self.player_list.append(player_id)
-
-    def del_player(self, player_id):
-        self.player_list.remove(player_id)
-
     def get_alive_player(self):
         return self.alive_player
 
@@ -69,6 +63,102 @@ class Game(object):
         for player in self.player_list:
             if player.get_player_character() == Character.hhd:
                 return player
+
+    def add_player(self, player_id, player_nn):
+        player_already_exist = False
+        for player in self.player_list:
+            if player_id == player.player_id:
+                player_already_exist = True
+                break
+        if not player_already_exist:
+            self.player_list.append(Player(player_id, player_nn))
+            send_message(self.get_game_id(), '@' + player_nn + '\u2005' + '加入游戏')
+        else:
+            send_message(self.game_id, '@' + player_nn + '\u2005' + '您已加入游戏')
+
+    def del_player(self, player_id, player_nn):
+        player_already_exist = False
+        for player in self.player_list:
+            player_already_exist = True
+            if player_id == player.player_id:
+                self.player_list.remove(player)
+                send_message(self.get_game_id(), '@' + player_nn + '\u2005' + '离开游戏')
+                break
+        if not player_already_exist:
+            send_message(self.game_id, '@' + player_nn + '\u2005' + '您还不是玩家')
+
+    def be_master(self, player_id):
+        is_alive_player = False
+        for player in self.player_list:
+            if player_id == player.player_id and player.status != 0:
+                is_alive_player = True
+                break
+        if not is_alive_player:
+            send_message(player_id, '\n'.join(player.player_nn + '的身份是：' + player.player_character for player in self.player_list))
+
+    def start(self):
+        random.shuffle(self.player_list)
+        player_list_str = '玩家名单\n'
+        for seat, player in enumerate(self.player_list):
+            player.set_player_seat(seat + 1)
+            player_list_str += str(player.get_player_seat()) + '  ' + (player.get_player_nn()) + '\n'
+        send_message(self.game_id, player_list_str + '\n身份发放开始')
+        if len(self.player_list) == 7:
+            character_list = CHARACTER7
+            self.game_mode = 3
+        else:
+            character_list = CHARACTER6
+            self.game_mode = 2
+        random.shuffle(character_list)
+        for index, player in enumerate(self.player_list):
+            player.name = character_list[index].name
+            player.set_player_character(character_list[index])
+            player.set_player_status(2)
+            send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character().value)
+        self.alive_player = len(self.player_list)
+        self.game_status = 1
+        send_message(self.game_id, '身份发放完成\n请私戳法官进行夜间行动')
+        self.game_status = 2
+        for player in self.player_list:
+            send_message(player.get_player_id(), '请开始行动')
+
+    def night_control(self, player_id, message):
+        if self.game_status == 2:
+            if self.actioned_player < self.alive_player:
+                if message.split()[0] == '行动':
+                    for player in self.player_list:
+                        if player_id == player.get_player_id() and player.get_player_status() == 2:
+                            available_target = False
+                            for target_player in self.player_list:
+                                if int(message.split()[1]) == target_player.get_player_seat():
+                                    available_target = True
+                                    break
+                            if available_target:
+                                self.night_action(player, int(message.split()[1]))
+                            else:
+                                send_message(player_id, '行动目标不正确')
+                            break
+                        else:
+                            send_message(player_id, '您无法行动')
+            if self.get_actioned_player() == self.get_alive_player():
+                self.set_game_status(3)
+                self.night_settlement()
+
+    def night_action(self, player, target):
+        for target_player in self.player_list:
+            if target == target_player.get_player_seat():
+                player.set_player_aims(target)
+                player.set_player_target(target)
+                player.set_player_status(3)
+                self.actioned_player += 1
+                break
+        send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
+
+    def night_settlement(self):
+        send_message(self.game_id, '夜间行动完成\n请等待法官结算')
+        if self.get_mfs().get_player_target != self.get_hhd():
+            pass
+
 
 class Character(Enum):
     Nill = '无'
@@ -190,103 +280,16 @@ def send_message(dest, content):
     itchat.send(msg=content, toUserName=dest)
 
 
-def add_player(game, player_id, player_nn):
-    player_already_exist = False
-    for player in game.get_player_list():
-        if player_id == player.get_player_id():
-            player_already_exist = True
-    if player_already_exist:
-        send_message(game.get_game_id(), '@' + player_nn + '\u2005' + '您已加入游戏')
-    else:
-        game.add_player(Player(player_id, player_nn))
-        send_message(game.get_game_id(), '@' + player_nn + '\u2005' + '加入游戏')
-
-
-def del_player(game, player_id, player_nn):
-    player_exist = False
-    for player in game.get_player_list():
-        if player_id == player.get_player_id():
-            player_exist = True
-    if not player_exist:
-        send_message(game.get_game_id(), '@' + player_nn + '\u2005' + '您还不是玩家')
-    else:
-        for player in game.get_player_list():
-            if player.get_player_id() == player_id:
-                game.del_player(player)
-        send_message(game.get_game_id(), '@' + player_nn + '\u2005' + '离开游戏')
-
-
-def be_master(game, player_id):
-    is_alive_player = False
-    for player in game.get_player_list():
-        if player.get_player_id() == player_id and player.get_player_status() != 0:
-            is_alive_player = True
-    if not is_alive_player:
-        send_message(player_id, '\n'.join(
-            player.get_player_nn() + '的身份是：' + player.get_player_character() for player in game.get_player_list()))
-
-
 def create_game(group_id):
     game_already_exist = False
     for game in GAME_LIST:
         if game.get_game_id() == group_id:
             game_already_exist = True
+            break
     if not game_already_exist:
         game = Game(group_id)
         GAME_LIST.append(game)
         send_message(group_id, '游戏 ' + game.get_game_id() + ' 已创建')
-
-
-def start_game(game, group_id):
-    random.shuffle(game.get_player_list())
-    game.set_player_list(game.get_player_list())
-    send_message(group_id, '玩家名单：\n' + '\n'.join(
-        player.get_player_nn() + '  ' + str(index + 1) for index, player in
-        enumerate(game.get_player_list())) + '\n身份发放开始')
-    if len(game.get_player_list()) == 7:
-        character_list = CHARACTER7
-        game.set_game_mode(3)
-    else:
-        character_list = CHARACTER6
-        game.set_game_mode(2)
-    random.shuffle(character_list)
-    for index, player in enumerate(game.get_player_list()):
-        player.name = character_list[index].name
-        player.set_player_character(character_list[index].value)
-        player.set_player_status(2)
-        send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
-    game.set_alive_player(len(game.get_player_list()))
-    game.set_game_status(1)
-    send_message(group_id, '身份发放完成\n请私戳法官进行夜间行动')
-    game.set_game_status(2)
-    for player in game.get_player_list():
-        send_message(player.get_player_id(), '请开始行动')
-
-
-def night_control(game, player_id, message):
-    if game.get_game_status() == 2:
-        if game.get_actioned_player() < game.get_alive_player():
-            if message.split()[0] == '行动':
-                for player in game.get_player_list():
-                    if player_id == player.get_player_id() and player.get_player_status() == 2:
-                        night_action(player, message.split()[1])
-                        game.set_actioned_player(game.get_actioned_player() + 1)
-        if game.get_actioned_player() == game.get_alive_player():
-            game.set_game_status(3)
-            send_message(game.get_game_id(), '夜间行动完成\n请等待法官结算')
-            night_settlement(game)
-
-
-def night_action(player, target):
-    player.set_player_aims(target)
-    player.set_player_target(target)
-    player.set_player_status(3)
-    send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
-
-
-def night_settlement(game):
-    if game.get_mfs().get_player_target != game.get_hhd():
-        print(1)
 
 
 def main():
@@ -301,40 +304,52 @@ def main():
                 create_game(msg['FromUserName'])
             for game in GAME_LIST:
                 if game.get_game_id() == msg['FromUserName']:
-                    if content == '开始游戏':
-                        start_game(game, msg['FromUserName'])
-                    elif content == '重发身份':
-                        for player in game.get_player_list():
-                            send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
-                    elif content == '删除游戏':
+                    if content == '删除游戏':
                         GAME_LIST.remove(game)
+                        del game
                         send_message(msg['FromUserName'], '游戏 ' + game.game_id + ' 已删除')
+                    elif content == '重建游戏':
+                        GAME_LIST.remove(game)
+                        del game
+                        create_game(msg['FromUserName'])
                     elif content == '法官':
-                        be_master(game, msg['ActualUserName'])
+                        game.be_master(msg['ActualUserName'])
+                    break
 
         for game in GAME_LIST:
             if msg['FromUserName'] == game.get_game_id():
                 content = msg['Content'].split()[0]
                 if game.get_game_status() == 0:
                     if content == '加入':
-                        add_player(game, msg['ActualUserName'], msg['ActualNickName'])
+                        game.add_player(msg['ActualUserName'], msg['ActualNickName'])
                     elif content == '离开':
-                        del_player(game, msg['ActualUserName'], msg['ActualNickName'])
-                if content == '玩家数量':
+                        game.del_player(msg['ActualUserName'], msg['ActualNickName'])
+                    elif content == '开始游戏':
+                        game.start()
+                if content == '重发身份':
+                    for player in game.get_player_list():
+                        send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
+                elif content == '玩家数量':
                     send_message(msg['FromUserName'], '当前玩家数量：' + str(len(game.get_player_list())))
                 elif content == '玩家列表':
                     send_message(msg['FromUserName'], '\n'.join(player.get_player_nn() for player in game.get_player_list()))
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制加入':
-                    add_player(game, msg['Content'].split()[1], msg['Content'].split()[1])
+                    game.add_player(msg['Content'].split()[1], msg['Content'].split()[1])
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制离开':
-                    del_player(game, msg['Content'].split()[1], msg['Content'].split()[1])
+                    game.del_player(msg['Content'].split()[1], msg['Content'].split()[1])
+                elif msg["ActualNickName"] == 'INT.ZC' and content == '强制结算':
+                    if game.get_game_status() == 2:
+                        game.set_game_status(3)
+                        game.night_settlement()
+
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '游戏列表':
                     send_message(msg['FromUserName'], '\n'.join(game.get_game_id() for game in GAME_LIST))
+                break
 
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=False)
     def private_op(msg):
         if len(GAME_LIST) == 1:
-            night_control(GAME_LIST[0], msg['FromUserName'], msg['Content'])
+            GAME_LIST[0].night_control(msg['FromUserName'], msg['Content'])
 
     itchat.run()
 
