@@ -61,8 +61,6 @@ class Game(object):
         self.actioned_player = actioned_player
 
 
-
-
 class Character(Enum):
     Nill = '无'
     hhd = '花蝴蝶'
@@ -249,7 +247,7 @@ def start_game(game, group_id):
         player.set_player_character(character_list[index].value)
         player.set_player_status(2)
         send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
-    game.set_alive_player(game.get_player_list())
+    game.set_alive_player(len(game.get_player_list()))
     game.set_game_status(1)
     send_message(group_id, '身份发放完成\n请私戳法官进行夜间行动')
     game.set_game_status(2)
@@ -260,23 +258,25 @@ def start_game(game, group_id):
 def night_control(game, player_id, message):
     if game.get_game_status() == 2:
         if game.get_actioned_player() < game.get_alive_player():
-            for player in game.get_player_list():
-                if player_id == player.get_player_id() and player.get_player_status() == 2:
-                    night_action(player, message)
-                    game.set_actioned_player(game.get_actioned_player() + 1)
+            if message.split()[0] == '行动':
+                for player in game.get_player_list():
+                    if player_id == player.get_player_id() and player.get_player_status() == 2:
+                        night_action(player, message.split()[1])
+                        game.set_actioned_player(game.get_actioned_player() + 1)
         if game.get_actioned_player() == game.get_alive_player():
+            game.set_game_status(3)
+            send_message(game.get_game_id(), '夜间行动完成\n请等待法官结算')
             night_settlement(game)
 
 
-def night_action(player, info):
-    if info.split()[0] == '行动':
-        player.set_player_target(info.split()[1])
-        player.set_player_status(3)
-        send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
+def night_action(player, target):
+    player.set_player_target(target)
+    player.set_player_status(3)
+    send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
 
 
 def night_settlement(game):
-    send_message(game.get_game_id, '夜间行动完成\n请等待法官结算')
+    pass
 
 
 def main():
