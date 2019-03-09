@@ -265,7 +265,7 @@ def night_control(game, player_id, message):
                     night_action(player, message)
                     game.set_actioned_player(game.get_actioned_player() + 1)
         if game.get_actioned_player() == game.get_alive_player():
-            night_settlement()
+            night_settlement(game)
 
 
 def night_action(player, info):
@@ -275,8 +275,8 @@ def night_action(player, info):
         send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
 
 
-def night_settlement():
-    pass
+def night_settlement(game):
+    send_message(game.get_game_id, '夜间行动完成\n请等待法官结算')
 
 
 def main():
