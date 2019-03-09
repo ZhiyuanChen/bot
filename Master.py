@@ -14,7 +14,6 @@ class Game(object):
         self.player_list = []
         self.alive_player_list = []
         self.alive_player = 0
-        self.actioned_player = 0
 
     def get_game_id(self):
         return self.game_id
@@ -54,12 +53,6 @@ class Game(object):
 
     def set_alive_player(self, alive_player):
         self.alive_player = alive_player
-
-    def get_actioned_player(self):
-        return self.actioned_player
-
-    def set_actioned_player(self, actioned_player):
-        self.actioned_player = actioned_player
 
     def get_hhd(self):
         for player in self.player_list:
@@ -140,7 +133,8 @@ class Game(object):
             send_message(player.get_player_id(), '请开始行动')
 
     def night_control(self, player_id, message):
-        if self.actioned_player < len(self.alive_player_list):
+        actioned_player = []
+        if len(actioned_player) < len(self.alive_player_list):
             if message.split()[0] == '行动':
                 can_act = False
                 available_target = False
@@ -167,7 +161,8 @@ class Game(object):
                         break
                 if can_act:
                     self.night_action(player, None)
-        if self.actioned_player == len(self.alive_player_list):
+                    actioned_player.append(player)
+        if len(actioned_player) == len(self.alive_player_list):
             self.game_status = 3
             self.night_settlement()
 
@@ -177,7 +172,6 @@ class Game(object):
                 player.set_player_aims(target)
                 player.set_player_target(target)
                 player.set_player_status(3)
-                self.actioned_player += 1
                 break
         send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
 
@@ -286,7 +280,6 @@ class Game(object):
             player.set_player_banned(False)
             player.set_player_muted(False)
             player.set_player_status(4)
-        self.actioned_player = 0
         self.game_status = 4
         briefing = '天亮了\n死亡的玩家有：'
         for dead_player in dead_player_list:
@@ -323,7 +316,8 @@ class Game(object):
             send_message(self.game_id, last_words)
 
     def day_control(self, player_id, message):
-        if self.actioned_player < len(self.alive_player_list):
+        voted_player = []
+        if len(voted_player) < len(self.alive_player_list):
             if message.split()[0] == '投票':
                 can_vote = False
                 available_target = False
@@ -338,11 +332,13 @@ class Game(object):
                             break
                     if available_target:
                         self.day_action(int(message.split()[1]))
+                        player.set_player_status(5)
+                        voted_player.append(player)
                     else:
                         send_message(self.game_id, '投票目标不正确')
                 else:
                     send_message(player_id, '您无法投票')
-        if self.actioned_player == len(self.alive_player_list):
+        if len(voted_player) == len(self.alive_player_list):
             self.game_status = 5
             self.day_settlement()
 
@@ -351,6 +347,8 @@ class Game(object):
             if target == player.get_player_ticket():
                 player.add_ticket()
 
+    def day_settlement(self):
+        pass
 
 class Character(Enum):
     Nill = '无'
