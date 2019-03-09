@@ -12,6 +12,8 @@ class Game(object):
         self.game_type = 0
         self.game_mode = False
         self.player_list = []
+        self.alive_player = 0
+        self.actioned_player = 0
 
     def get_game_id(self):
         return self.game_id
@@ -45,6 +47,20 @@ class Game(object):
 
     def del_player(self, player_id):
         self.player_list.remove(player_id)
+
+    def get_alive_player(self):
+        return self.alive_player
+
+    def set_alive_player(self, alive_player):
+        self.alive_player = alive_player
+
+    def get_actioned_player(self):
+        return self.actioned_player
+
+    def set_actioned_player(self, actioned_player):
+        self.actioned_player = actioned_player
+
+
 
 
 class Character(Enum):
@@ -233,11 +249,23 @@ def start_game(game, group_id):
         player.set_player_character(character_list[index].value)
         player.set_player_status(2)
         send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
+    game.set_alive_player(game.get_player_list())
     game.set_game_status(1)
     send_message(group_id, '身份发放完成\n请私戳法官进行夜间行动')
     game.set_game_status(2)
     for player in game.get_player_list():
         send_message(player.get_player_id(), '请开始行动')
+
+
+def night_control(game, player_id, message):
+    if game.get_game_status() == 2:
+        if game.get_actioned_player() < game.get_alive_player():
+            for player in game.get_player_list():
+                if player_id == player.get_player_id() and player.get_player_status() == 2:
+                    night_action(player, message)
+                    game.set_actioned_player(game.get_actioned_player() + 1)
+        if game.get_actioned_player() == game.get_alive_player():
+            night_settlement()
 
 
 def night_action(player, info):
@@ -247,15 +275,8 @@ def night_action(player, info):
         send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
 
 
-def settlement():
+def night_settlement():
     pass
-
-
-def game_control(game, player_id, message):
-    if game.get_game_status() == 2:
-        for player in game.get_player_list():
-            if player_id == player.get_player_id() and player.get_player_status() == 2:
-                night_action(player, message)
 
 
 def main():
@@ -303,7 +324,7 @@ def main():
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=False)
     def private_op(msg):
         if len(GAME_LIST) == 1:
-            game_control(GAME_LIST[0], msg['FromUserName'], msg['Content'])
+            night_control(GAME_LIST[0], msg['FromUserName'], msg['Content'])
 
     itchat.run()
 
