@@ -12,6 +12,7 @@ class Game(object):
         self.game_type = 0  # 角色类型
         self.game_mode = True  # 游戏类型 False：禁言转职 True：禁票不转职
         self.player_list = []
+        self.alive_player_list = []
         self.alive_player = 0
         self.actioned_player = 0
 
@@ -41,6 +42,12 @@ class Game(object):
 
     def set_player_list(self, player_list):
         self.player_list = player_list
+
+    def get_alive_player_list(self):
+        return self.alive_player_list
+
+    def set_alive_player_list(self, alive_player_list):
+        self.alive_player_list = alive_player_list
 
     def get_alive_player(self):
         return self.alive_player
@@ -100,7 +107,7 @@ class Game(object):
     def be_master(self, player_id):
         is_alive_player = False
         for player in self.player_list:
-            if player_id == player.player_id and player.status != 0:
+            if player_id == player.player_id and player in self.alive_player_list:
                 is_alive_player = True
                 break
         if not is_alive_player:
@@ -110,6 +117,7 @@ class Game(object):
         random.shuffle(self.player_list)
         player_list_str = '玩家名单\n'
         for seat, player in enumerate(self.player_list):
+            self.alive_player_list.append(player)
             player.set_player_seat(seat + 1)
             player_list_str += str(player.get_player_seat()) + '  ' + (player.get_player_nn()) + '\n'
         send_message(self.game_id, player_list_str + '\n身份发放开始')
@@ -125,26 +133,25 @@ class Game(object):
             player.set_player_character(character_list[index])
             player.set_player_status(2)
             send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character().value)
-        self.alive_player = len(self.player_list)
         self.game_status = 1
         send_message(self.game_id, '身份发放完成\n请私戳法官进行夜间行动')
         self.game_status = 2
-        for player in self.player_list:
+        for player in self.alive_player_list:
             send_message(player.get_player_id(), '请开始行动')
 
     def night_control(self, player_id, message):
         if self.game_status == 2:
-            if self.actioned_player < self.alive_player:
+            if self.actioned_player < len(self.alive_player_list):
                 if message.split()[0] == '行动':
                     can_act = False
                     available_target = False
-                    for player in self.player_list:
+                    for player in self.alive_player_list:
                         if player_id == player.get_player_id() and player.get_player_status() == 2:
                             can_act = True
                             break
                     if can_act:
-                        for target_player in self.player_list:
-                            if int(message.split()[1]) == target_player.get_player_seat() and target_player.get_player_status() != 0:
+                        for target_player in self.alive_player_list:
+                            if int(message.split()[1]) == target_player.get_player_seat():
                                 available_target = True
                                 break
                         if available_target:
@@ -156,18 +163,18 @@ class Game(object):
 
                 elif message.split()[0] == '不行动':
                     can_act = False
-                    for player in self.player_list:
+                    for player in self.alive_player_list:
                         if player_id == player.get_player_id() and player.get_player_status() == 2:
                             can_act = True
                             break
                     if can_act:
                         self.night_action(player, None)
-            if self.actioned_player == self.alive_player:
+            if self.actioned_player == len(self.alive_player_list):
                 self.game_status = 3
                 self.night_settlement()
 
     def night_action(self, player, target):
-        for target_player in self.player_list:
+        for target_player in self.alive_player_list:
             if target == target_player.get_player_seat():
                 player.set_player_aims(target)
                 player.set_player_target(target)
@@ -191,20 +198,19 @@ class Game(object):
         ss_dead = False
         mfs_dead = False
         sl_dead = False
-        for player in self.player_list:
+        for player in self.alive_player_list:
             if hhd.get_player_target() == player.get_player_seat():
                 hhd_target = player
             elif self.get_mfs().get_player_target() == player.get_player_seat():
                 mfs_target = player
-
         if mfs_target != self.get_hhd().get_player_seat():
-            for player in self.player_list:
+            for player in self.alive_player_list:
                 if player.get_player_target() == hhd_target:
                     player.set_player_target(None)
-        for player in self.player_list:
+        for player in self.alive_player_list:
             # if player.get_player_target() == jz.get_player_seat():
             #     player.set_player_target(player.get_player_seat())
-            for target_player in self.player_list:
+            for target_player in self.alive_player_list:
                 if player.get_player_target() == target_player.get_player_seat():
                     if player.get_player_seat() == mfs_target:
                         player.set_player_banned(True)
@@ -216,7 +222,7 @@ class Game(object):
                     elif player.get_player_character() == Character.wy:
                         wy = player
                         wy_target = target_player
-                        for third_player in self.player_list:
+                        for third_player in self.alive_player_list:
                             if target_player.get_player_target() == third_player.get_player_seat():
                                 wy_target_target = third_player
                                 break
@@ -229,9 +235,9 @@ class Game(object):
                     elif player.get_player_character() == Character.sl:
                         target_player.set_player_muted(True)
                     elif player.get_player_character() == Character.sm:
-                        target_player.set_player_ticket(target_player.get_player_ticket()+1)
+                        target_player.add_ticket()
                     elif player.get_player_character() == Character.em:
-                        target_player.set_player_ticket(target_player.get_player_ticket()+1)
+                        target_player.add_ticket()
                     print('玩家：' + player.get_player_nn() + '身份：' + player.get_player_character().value + '行动：' + target_player.get_player_nn())
                     break
 
@@ -259,7 +265,7 @@ class Game(object):
             else:
                 send_message(wy.get_player_id(), '昨晚的行动目标：\n失败')
 
-        for player in self.player_list:
+        for player in self.alive_player_list:
             if player.get_player_killed() == 0:
                 if player.get_player_healed():
                     player.set_player_failure(player.get_player_failure() + 1)
@@ -281,12 +287,12 @@ class Game(object):
             player.set_player_killed(0)
             player.set_player_banned(False)
             player.set_player_muted(False)
-            player.set_player_ticket(0)
             player.set_player_status(4)
 
         self.game_status = 4
         briefing = '天亮了\n死亡的玩家有：'
         for dead_player in dead_player_list:
+            self.alive_player_list.remove(dead_player)
             if self.game_mode:
                 if dead_player.get_player_character() in [Character.ss, Character.mfs, Character.sl]:
                     if dead_player.get_player_character() == Character.ss:
@@ -319,7 +325,8 @@ class Game(object):
             send_message(self.game_id, last_words)
 
     def day_action(self, target):
-        pass
+        for player in self.alive_player_list:
+            pass
 
 
 class Character(Enum):
@@ -432,6 +439,9 @@ class Player(object):
 
     def set_player_ticket(self, player_ticket):
         self.player_ticket = player_ticket
+
+    def add_ticket(self):
+        self.player_ticket += 1
 
     def death(self):
         self.set_player_status(0)
