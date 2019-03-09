@@ -161,10 +161,6 @@ CHARACTER7 = [Character.hhd, Character.jjs, Character.ys, Character.jc, Characte
 GAME_LIST = []
 
 
-def settlement():
-    pass
-
-
 def send_message(dest, content):
     time.sleep(0.2)
     print(content + ' is being sent to ' + dest)
@@ -227,17 +223,19 @@ def start_game(game, group_id):
         player.get_player_nn() + '  ' + str(index + 1) for index, player in
         enumerate(game.get_player_list())) + '\n身份发放开始')
     if len(game.get_player_list()) == 7:
+        game.set_game_mode(True)
         random.shuffle(CHARACTER7)
         for index, player in enumerate(game.get_player_list()):
             player.name = CHARACTER7[index].name
-            player.set_player_status(1)
-            game.set_game_mode(True)
+            player.set_player_character(CHARACTER7[index].value)
+            player.set_player_status(2)
             send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
     else:
         random.shuffle(CHARACTER6)
         for index, player in enumerate(game.get_player_list()):
             player.name = CHARACTER6[index].name
             player.set_player_character(CHARACTER6[index].value)
+            player.set_player_status(2)
             send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
     game.set_game_status(1)
     send_message(group_id, '身份发放完成\n请私戳法官进行夜间行动')
@@ -246,21 +244,26 @@ def start_game(game, group_id):
         send_message(player.get_player_id(), '请开始行动')
 
 
-def info_process(game, player_id, info):
-    for player in game.get_player_list():
-        if player.get_player_id() == player_id and player.get_player_status() != 0:
-            if info.split()[0] == '行动':
-                player.set_player_target(info.split()[1])
-                send_message(player_id, '行动目标设置为：' + str(player.get_player_target()))
+def night_action(player, info):
+    if info.split()[0] == '行动':
+        player.set_player_target(info.split()[1])
+        player.set_player_status(3)
+        send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
+
+
+def settlement():
+    pass
+
+
+def game_control(game, player_id, message):
+    if game.get_game_status() == 2:
+        for player in game.get_player_list():
+            if player_id == player.get_player_id() and player.get_player_status() == 2:
+                night_action(player, message)
 
 
 def main():
     itchat.auto_login(hotReload=True, enableCmdQR=False)
-    group_chat_dict = itchat.search_chatrooms(name='HHDbot')
-    for item in group_chat_dict:
-        print(len(group_chat_dict))
-        print(item)
-    # itchat.send("机器人启动！！！！", toUserName="@@803d052409c5d1d19368552f05d39ee69340002deb9952993c92f2b03afcf8b2")
 
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=True)
     def group_op(msg):
@@ -296,15 +299,15 @@ def main():
                     send_message(msg['FromUserName'], '\n'.join(player.get_player_nn() for player in game.get_player_list()))
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制加入':
                     add_player(game, msg['FromUserName'], msg['Content'].split()[3], msg['Content'].split()[3])
-                elif msg["ActualNickName"] == 'INT.ZC' and content == '强制移出':
+                elif msg["ActualNickName"] == 'INT.ZC' and content == '强制离开':
                     del_player(game, msg['FromUserName'], msg['Content'].split()[3], msg['Content'].split()[3])
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '游戏列表':
                     send_message(msg['FromUserName'], ' '.join(game.get_game_id() for game in GAME_LIST))
 
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=False)
     def private_op(msg):
-        if len(GAME_LIST) == 1 and GAME_LIST[0].get_game_status() == 1:
-            info_process(GAME_LIST[0], msg['FromUserName'], msg['Content'])
+        if len(GAME_LIST) == 1:
+            game_control(GAME_LIST[0], msg['FromUserName'], msg['Content'])
 
     itchat.run()
 
