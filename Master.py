@@ -140,38 +140,36 @@ class Game(object):
             send_message(player.get_player_id(), '请开始行动')
 
     def night_control(self, player_id, message):
-        if self.game_status == 2:
-            if self.actioned_player < len(self.alive_player_list):
-                if message.split()[0] == '行动':
-                    can_act = False
-                    available_target = False
-                    for player in self.alive_player_list:
-                        if player_id == player.get_player_id() and player.get_player_status() == 2:
-                            can_act = True
+        if self.actioned_player < len(self.alive_player_list):
+            if message.split()[0] == '行动':
+                can_act = False
+                available_target = False
+                for player in self.alive_player_list:
+                    if player_id == player.get_player_id() and player.get_player_status() == 2:
+                        can_act = True
+                        break
+                if can_act:
+                    for target_player in self.alive_player_list:
+                        if int(message.split()[1]) == target_player.get_player_seat():
+                            available_target = True
                             break
-                    if can_act:
-                        for target_player in self.alive_player_list:
-                            if int(message.split()[1]) == target_player.get_player_seat():
-                                available_target = True
-                                break
-                        if available_target:
-                            self.night_action(player, int(message.split()[1]))
-                        else:
-                            send_message(player_id, '行动目标不正确')
+                    if available_target:
+                        self.night_action(player, int(message.split()[1]))
                     else:
-                        send_message(player_id, '您无法行动')
-
-                elif message.split()[0] == '不行动':
-                    can_act = False
-                    for player in self.alive_player_list:
-                        if player_id == player.get_player_id() and player.get_player_status() == 2:
-                            can_act = True
-                            break
-                    if can_act:
-                        self.night_action(player, None)
-            if self.actioned_player == len(self.alive_player_list):
-                self.game_status = 3
-                self.night_settlement()
+                        send_message(player_id, '行动目标不正确')
+                else:
+                    send_message(player_id, '您无法行动')
+            elif message.split()[0] == '不行动':
+                can_act = False
+                for player in self.alive_player_list:
+                    if player_id == player.get_player_id() and player.get_player_status() == 2:
+                        can_act = True
+                        break
+                if can_act:
+                    self.night_action(player, None)
+        if self.actioned_player == len(self.alive_player_list):
+            self.game_status = 3
+            self.night_settlement()
 
     def night_action(self, player, target):
         for target_player in self.alive_player_list:
@@ -288,7 +286,7 @@ class Game(object):
             player.set_player_banned(False)
             player.set_player_muted(False)
             player.set_player_status(4)
-
+        self.actioned_player = 0
         self.game_status = 4
         briefing = '天亮了\n死亡的玩家有：'
         for dead_player in dead_player_list:
@@ -324,9 +322,34 @@ class Game(object):
                 last_words += '\n'
             send_message(self.game_id, last_words)
 
+    def day_control(self, player_id, message):
+        if self.actioned_player < len(self.alive_player_list):
+            if message.split()[0] == '投票':
+                can_vote = False
+                available_target = False
+                for player in self.alive_player_list:
+                    if player_id == player.get_player_id() and player.get_player_status() == 4:
+                        can_vote = True
+                        break
+                if can_vote:
+                    for target_player in self.alive_player_list:
+                        if int(message.split()[1]) == target_player.get_player_seat():
+                            available_target = True
+                            break
+                    if available_target:
+                        self.day_action(int(message.split()[1]))
+                    else:
+                        send_message(self.game_id, '投票目标不正确')
+                else:
+                    send_message(player_id, '您无法投票')
+        if self.actioned_player == len(self.alive_player_list):
+            self.game_status = 5
+            self.day_settlement()
+
     def day_action(self, target):
         for player in self.alive_player_list:
-            pass
+            if target == player.get_player_ticket():
+                player.add_ticket()
 
 
 class Character(Enum):
@@ -504,11 +527,8 @@ def main():
                         game.del_player(msg['ActualUserName'], msg['ActualNickName'])
                     elif content == '开始游戏':
                         game.start()
-                elif game.get_game_status() == 4:
-                    if content == '开始投票':
-                        game.set_game_status(5)
-                    elif content == '投票':
-                        game.day_action(msg['Content'].split()[1])
+                elif game.get_game_status() in [4, 5]:
+                    game.day_control(msg['Content'])
                 if content == '重发身份':
                     for player in game.get_player_list():
                         send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
@@ -531,7 +551,7 @@ def main():
 
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=False)
     def private_op(msg):
-        if len(GAME_LIST) == 1:
+        if len(GAME_LIST) == 1 and GAME_LIST[0].get_game_status in [2, 3]:
             GAME_LIST[0].night_control(msg['FromUserName'], msg['Content'])
 
     itchat.run()
