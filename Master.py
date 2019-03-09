@@ -223,20 +223,16 @@ def start_game(game, group_id):
         player.get_player_nn() + '  ' + str(index + 1) for index, player in
         enumerate(game.get_player_list())) + '\n身份发放开始')
     if len(game.get_player_list()) == 7:
+        character_list = CHARACTER7
         game.set_game_mode(True)
-        random.shuffle(CHARACTER7)
-        for index, player in enumerate(game.get_player_list()):
-            player.name = CHARACTER7[index].name
-            player.set_player_character(CHARACTER7[index].value)
-            player.set_player_status(2)
-            send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
     else:
-        random.shuffle(CHARACTER6)
-        for index, player in enumerate(game.get_player_list()):
-            player.name = CHARACTER6[index].name
-            player.set_player_character(CHARACTER6[index].value)
-            player.set_player_status(2)
-            send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
+        character_list = CHARACTER6
+    random.shuffle(character_list)
+    for index, player in enumerate(game.get_player_list()):
+        player.name = character_list[index].name
+        player.set_player_character(character_list[index].value)
+        player.set_player_status(2)
+        send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
     game.set_game_status(1)
     send_message(group_id, '身份发放完成\n请私戳法官进行夜间行动')
     game.set_game_status(2)
