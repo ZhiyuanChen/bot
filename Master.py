@@ -109,7 +109,7 @@ class Game(object):
 
     def start(self):
         random.shuffle(self.player_list)
-        player_list_str = '玩家名单\n'
+        player_list_str = '玩家列表\n'
         for seat, player in enumerate(self.player_list):
             self.alive_player_list.append(player)
             player.set_player_seat(seat + 1)
@@ -145,10 +145,10 @@ class Game(object):
                 if can_act:
                     for target_player in self.alive_player_list:
                         if int(message.split()[1]) == target_player.get_player_seat():
-                            available_target = True
+                            available_target = target_player
                             break
-                    if available_target:
-                        self.night_action(player, int(message.split()[1]))
+                    if available_target is not None:
+                        self.night_action(player, available_target)
                     else:
                         send_message(player_id, '行动目标不正确')
                 else:
@@ -161,18 +161,15 @@ class Game(object):
                         break
                 if can_act:
                     self.night_action(player, None)
-                    actioned_player += 1
+                    self.actioned_player += 1
         if self.actioned_player == len(self.alive_player_list):
             self.game_status = 3
             self.night_settlement()
 
     def night_action(self, player, target):
-        for target_player in self.alive_player_list:
-            if target == target_player.get_player_seat():
-                player.set_player_aims(target)
-                player.set_player_target(target)
-                player.set_player_status(3)
-                break
+        player.set_player_aims(target.get_player_seat())
+        player.set_player_target(target.get_player_seat())
+        player.set_player_status(3)
         send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
 
     def night_settlement(self):
@@ -320,7 +317,7 @@ class Game(object):
         if self.actioned_player < len(self.alive_player_list):
             if message.split()[0] == '投票':
                 can_vote = False
-                available_target = False
+                available_target = None
                 for player in self.alive_player_list:
                     if player_id == player.get_player_id() and player.get_player_status() == 4:
                         can_vote = True
@@ -328,10 +325,12 @@ class Game(object):
                 if can_vote:
                     for target_player in self.alive_player_list:
                         if int(message.split()[1]) == target_player.get_player_seat():
-                            available_target = True
+                            available_target = target_player
                             break
-                    if available_target:
-                        self.day_action(int(message.split()[1]))
+                    if available_target is not None:
+                        available_target.add_ticket()
+                        print(
+                            '玩家：' + player.get_player_nn() + '身份：' + player.get_player_character().value + '行动：' + available_target.get_player_nn())
                         player.set_player_status(5)
                         self.actioned_player += 1
                     else:
@@ -339,16 +338,47 @@ class Game(object):
                 else:
                     send_message(player_id, '您无法投票')
         if self.actioned_player == len(self.alive_player_list):
-            self.game_status = 5
+            if self.game_status == 5:
+                self.game_status = 6
+            elif self.game_status == 7:
+                self.game_status = 8
             self.day_settlement()
 
-    def day_action(self, target):
-        for player in self.alive_player_list:
-            if target == player.get_player_ticket():
-                player.add_ticket()
-
     def day_settlement(self):
-        pass
+        voted_player_list = sorted(self.alive_player_list, key=lambda x: x.player_ticket, reverse=True)
+        result = '投票结果:\n'
+        briefing = '投票阶段结束\n'
+        if voted_player_list[0].get_player_ticket() > voted_player_list[1].get_player_ticket():
+            briefing += '玩家：' + voted_player_list[0].get_player_nn() + ' 死亡\n' + '公布身份为： '
+            if voted_player_list[0].get_player_character() in [Character.ss, Character.mfs, Character.sl]:
+                briefing += '坏特殊\n没有遗言'
+            else:
+                briefing += '非坏特殊\n请在滴声之后留下遗言：'
+            voted_player_list[0].death()
+            self.alive_player_list.remove(voted_player_list[0])
+            for player in self.alive_player_list:
+                player.set_player_status(2)
+                if player.get_player_ticket() > 0:
+                    result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+            self.game_status = 2
+        elif voted_player_list[0].get_player_ticket() == voted_player_list[1].get_player_ticket() and self.game_status == 6:
+            for player in self.alive_player_list:
+                player.set_player_status(4)
+                if player.get_player_ticket() > 0:
+                    result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+            briefing += '平票\n进入第二阶段投票'
+            self.game_status = 7
+        else:
+            for player in self.alive_player_list:
+                player.set_player_status(2)
+                if player.get_player_ticket() > 0:
+                    result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+            briefing += '平票\n请私戳法官进行夜间行动'
+            self.game_status = 2
+
+        send_message(self.game_id, result)
+        send_message(self.game_id, briefing)
+        self.actioned_player = 0
 
 
 class Character(Enum):
@@ -526,31 +556,48 @@ def main():
                         game.del_player(msg['ActualUserName'], msg['ActualNickName'])
                     elif content == '开始游戏':
                         game.start()
-                elif game.get_game_status() in [4, 5]:
-                    game.day_control(msg['Content'])
+                elif content == '开始投票' and game.get_game_status() == 4:
+                    game.set_game_status(5)
+                    send_message(msg['FromUserName'], '投票阶段开始')
+                elif game.get_game_status() in [5, 7]:
+                    game.day_control(msg['ActualUserName'], msg['Content'])
                 if content == '重发身份':
                     for player in game.get_player_list():
-                        send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character())
+                        send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character().value)
                 elif content == '玩家数量':
                     send_message(msg['FromUserName'], '当前玩家数量：' + str(len(game.get_player_list())))
                 elif content == '玩家列表':
-                    send_message(msg['FromUserName'], '\n'.join(player.get_player_nn() for player in game.get_player_list()))
+                    player_list_str = '当前玩家列表：\n'
+                    for seat, player in enumerate(game.player_list):
+                        player_list_str += str(seat) + '  ' + (player.get_player_nn()) + '\n'
+                    send_message(msg['FromUserName'], player_list_str)
+                elif content == '游戏状态':
+                    send_message(msg['FromUserName'], '当前游戏状态为：' + str(game.get_game_status()))
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制加入':
-                    game.add_player(msg['Content'].split()[1], msg['Content'].split()[1])
+                    search_result = msg['User'].search_member(msg['Content'].split()[1])
+                    if len(search_result) == 1:
+                        game.add_player(search_result[0]['UserName'], search_result[0]['NickName'])
+                    else:
+                        game.add_player(msg['Content'].split()[1], msg['Content'].split()[1])
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制离开':
                     game.del_player(msg['Content'].split()[1], msg['Content'].split()[1])
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制结算':
                     if game.get_game_status() == 2:
                         game.set_game_status(3)
                         game.night_settlement()
-
+                    elif game.get_game_status() == 5:
+                        game.set_game_status(6)
+                        game.day_settlement()
+                    elif game.get_game_status() == 7:
+                        game.set_game_status(8)
+                        game.day_settlement()
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '游戏列表':
                     send_message(msg['FromUserName'], '\n'.join(game.get_game_id() for game in GAME_LIST))
                 break
 
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=False)
     def private_op(msg):
-        if len(GAME_LIST) == 1 and GAME_LIST[0].get_game_status in [2, 3]:
+        if len(GAME_LIST) == 1 and GAME_LIST[0].get_game_status() in [2, 3]:
             GAME_LIST[0].night_control(msg['FromUserName'], msg['Content'])
 
     itchat.run()
