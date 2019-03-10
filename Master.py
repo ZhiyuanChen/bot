@@ -355,28 +355,27 @@ class Game(object):
                 briefing += '坏特殊\n没有遗言'
             else:
                 briefing += '非坏特殊\n请在滴声之后留下遗言：'
-            voted_player_list[0].death()
-            self.alive_player_list.remove(voted_player_list[0])
             for player in self.alive_player_list:
                 player.set_player_status(2)
                 if player.get_player_ticket() > 0:
                     result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+            voted_player_list[0].death()
+            self.alive_player_list.remove(voted_player_list[0])
             self.game_status = 2
         elif voted_player_list[0].get_player_ticket() == voted_player_list[1].get_player_ticket() and self.game_status == 6:
             for player in self.alive_player_list:
                 player.set_player_status(4)
                 if player.get_player_ticket() > 0:
                     result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
-            briefing += '平票\n进入第二阶段投票'
             self.game_status = 7
+            briefing += '平票\n进入第二阶段投票'
         else:
             for player in self.alive_player_list:
                 player.set_player_status(2)
                 if player.get_player_ticket() > 0:
                     result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
-            briefing += '平票\n请私戳法官进行夜间行动'
             self.game_status = 2
-
+            briefing += '平票\n请私戳法官进行夜间行动'
         send_message(self.game_id, result)
         send_message(self.game_id, briefing)
         self.actioned_player = 0
