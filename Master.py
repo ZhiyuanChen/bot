@@ -277,8 +277,6 @@ class Game(object):
             player.set_player_banned(False)
             player.set_player_muted(False)
             player.set_player_status(4)
-        self.actioned_player = 0
-        self.game_status = 4
         briefing = '天亮了\n死亡的玩家有：'
         for dead_player in dead_player_list:
             self.alive_player_list.remove(dead_player)
@@ -312,6 +310,9 @@ class Game(object):
                 last_words += dead_player.get_player_nn()
                 last_words += '\n'
             send_message(self.game_id, last_words)
+        self.actioned_player = 0
+        self.game_status = 4
+        self.judge()
 
     def day_control(self, player_id, message):
         if self.actioned_player < len(self.alive_player_list):
@@ -379,6 +380,22 @@ class Game(object):
         send_message(self.game_id, result)
         send_message(self.game_id, briefing)
         self.actioned_player = 0
+        self.judge()
+
+    def judge(self):
+        good_list = []
+        bad_list = []
+        for player in self.get_alive_player_list():
+            if player.get_player_character() in [Character.ss, Character.mfs, Character.sl]:
+                bad_list.append(player)
+            else:
+                good_list.append(player)
+        if len(good_list) == 0:
+            self.game_status = 0
+            send_message(self.game_id, '游戏结束\n坏人胜利')
+        elif len(bad_list) == 0:
+            self.game_status = 0
+            send_message(self.game_id, '游戏结束\n好人胜利')
 
 
 class Character(Enum):
