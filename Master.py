@@ -1,8 +1,8 @@
+import random
+import time
 import uuid
 from enum import Enum
 import itchat
-import time
-import random
 
 
 class Game(object):
@@ -83,7 +83,8 @@ class Game(object):
                 break
         if not player_already_exist:
             self.player_list.append(Player(player_id, player_nn))
-            send_message(self.get_game_id(), '@' + player_nn + '\u2005' + '加入游戏')
+            send_message(self.get_game_id(), '@' +
+                         player_nn + '\u2005' + '加入游戏')
         else:
             send_message(self.game_id, '@' + player_nn + '\u2005' + '您已加入游戏')
 
@@ -93,7 +94,8 @@ class Game(object):
             player_already_exist = True
             if player_id == player.player_id:
                 self.player_list.remove(player)
-                send_message(self.get_game_id(), '@' + player_nn + '\u2005' + '离开游戏')
+                send_message(self.get_game_id(), '@' +
+                             player_nn + '\u2005' + '离开游戏')
                 break
         if not player_already_exist:
             send_message(self.game_id, '@' + player_nn + '\u2005' + '您还不是玩家')
@@ -105,7 +107,8 @@ class Game(object):
                 is_alive_player = True
                 break
         if not is_alive_player:
-            send_message(player_id, '\n'.join(player.player_nn + '的身份是：' + player.player_character for player in self.player_list))
+            send_message(player_id, '\n'.join(player.player_nn + '的身份是：' +
+                         player.player_character for player in self.player_list))
 
     def start(self):
         random.shuffle(self.player_list)
@@ -113,7 +116,8 @@ class Game(object):
         for seat, player in enumerate(self.player_list):
             self.alive_player_list.append(player)
             player.set_player_seat(seat + 1)
-            player_list_str += str(player.get_player_seat()) + '  ' + (player.get_player_nn()) + '\n'
+            player_list_str += str(player.get_player_seat()) + \
+                                   '  ' + (player.get_player_nn()) + '\n'
         send_message(self.game_id, player_list_str + '\n身份发放开始')
         if len(self.player_list) == 7:
             character_list = CHARACTER7
@@ -125,8 +129,10 @@ class Game(object):
         for index, player in enumerate(self.player_list):
             player.name = character_list[index].name
             player.set_player_character(character_list[index])
+            player.set_player_faction(False if player.get_player_character() in [Character.ss, Character.mfs, Character.sl] else True)
             player.set_player_status(2)
-            send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character().value)
+            send_message(player.get_player_id(), '您的身份是：\n' +
+                         player.get_player_character().value)
         self.game_status = 1
         send_message(self.game_id, '身份发放完成\n请私戳法官进行夜间行动')
         self.game_status = 2
@@ -170,7 +176,8 @@ class Game(object):
         player.set_player_aims(target.get_player_seat())
         player.set_player_target(target.get_player_seat())
         player.set_player_status(3)
-        send_message(player.get_player_id(), '行动目标设置为：' + str(player.get_player_target()))
+        send_message(player.get_player_id(), '行动目标设置为：' +
+                     str(player.get_player_target()))
 
     def night_settlement(self):
         dead_player_list = []
@@ -207,7 +214,7 @@ class Game(object):
                     if player.get_player_character() == Character.jc:
                         jc = player
                         jc_target = target_player
-                        jc_target_character = target_player
+                        jc_target_faction = target_player.get_player_faction()
                     elif player.get_player_character() == Character.wy:
                         wy = player
                         wy_target = target_player
@@ -218,16 +225,19 @@ class Game(object):
                     elif player.get_player_character() == Character.ys:
                         target_player.set_player_healed(True)
                     elif player.get_player_character() == Character.jjs:
-                        target_player.set_player_killed(target_player.get_player_killed()+1)
+                        target_player.set_player_killed(
+                            target_player.get_player_killed()+1)
                     elif player.get_player_character() == Character.ss:
-                        target_player.set_player_killed(target_player.get_player_killed()+1)
+                        target_player.set_player_killed(
+                            target_player.get_player_killed()+1)
                     elif player.get_player_character() == Character.sl:
                         target_player.set_player_muted(True)
                     elif player.get_player_character() == Character.sm:
                         target_player.add_ticket()
                     elif player.get_player_character() == Character.em:
                         target_player.add_ticket()
-                    print('玩家：' + player.get_player_nn() + '身份：' + player.get_player_character().value + '行动：' + target_player.get_player_nn())
+                    print('玩家：' + player.get_player_nn() + '身份：' +
+                          player.get_player_character().value + '行动：' + target_player.get_player_nn())
                     break
 
         if hhd_target is not None:
@@ -240,7 +250,8 @@ class Game(object):
 
         if 'jc' in locals():
             if jc_target is not None:
-                send_message(jc.get_player_id(), '昨晚的查验结果：\n' + jc_target_character.get_player_character().value)
+                send_message(jc.get_player_id(), '昨晚的查验结果：\n' +
+                             '非坏特殊' if jc_target_faction else '坏特殊')
             else:
                 send_message(jc.get_player_id(), '昨晚的查验结果：\n失败')
 
@@ -250,7 +261,8 @@ class Game(object):
                     wy.death()
                     dead_player_list.append(wy)
                 else:
-                    send_message(wy.get_player_id(), '昨晚的行动目标：\n' + wy_target_target)
+                    send_message(wy.get_player_id(),
+                                 '昨晚的行动目标：\n' + wy_target_target)
             else:
                 send_message(wy.get_player_id(), '昨晚的行动目标：\n失败')
 
@@ -281,7 +293,7 @@ class Game(object):
         for dead_player in dead_player_list:
             self.alive_player_list.remove(dead_player)
             if self.game_mode:
-                if dead_player.get_player_character() in [Character.ss, Character.mfs, Character.sl]:
+                if not dead_player.get_player_faction:
                     if dead_player.get_player_character() == Character.ss:
                         ss_dead = True
                     elif dead_player.get_player_character() == Character.mfs:
@@ -305,7 +317,8 @@ class Game(object):
         if len(dead_player_list) > 0:
             last_words = '请以下玩家顺序遗言：\n'
             if self.game_mode:
-                dead_player_list = list(set(dead_player_list).difference(set(muted_player_list)))
+                dead_player_list = list(
+                    set(dead_player_list).difference(set(muted_player_list)))
             for dead_player in dead_player_list:
                 last_words += dead_player.get_player_nn()
                 last_words += '\n'
@@ -346,19 +359,22 @@ class Game(object):
             self.day_settlement()
 
     def day_settlement(self):
-        voted_player_list = sorted(self.alive_player_list, key=lambda x: x.player_ticket, reverse=True)
+        voted_player_list = sorted(
+            self.alive_player_list, key=lambda x: x.player_ticket, reverse=True)
         result = '投票结果:\n'
         briefing = '投票阶段结束\n'
         if voted_player_list[0].get_player_ticket() > voted_player_list[1].get_player_ticket():
-            briefing += '玩家：' + voted_player_list[0].get_player_nn() + ' 死亡\n' + '公布身份为： '
-            if voted_player_list[0].get_player_character() in [Character.ss, Character.mfs, Character.sl]:
+            briefing += '玩家：' + \
+                voted_player_list[0].get_player_nn() + ' 死亡\n' + '公布身份为： '
+            if not voted_player_list[0].get_player_faction():
                 briefing += '坏特殊\n没有遗言'
             else:
                 briefing += '非坏特殊\n请在滴声之后留下遗言：'
             for player in self.alive_player_list:
                 player.set_player_status(2)
                 if player.get_player_ticket() > 0:
-                    result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+                    result += str(player.get_player_ticket()) + \
+                                  '  ' + player.get_player_nn() + '\n'
             voted_player_list[0].death()
             self.alive_player_list.remove(voted_player_list[0])
             self.game_status = 2
@@ -366,14 +382,16 @@ class Game(object):
             for player in self.alive_player_list:
                 player.set_player_status(4)
                 if player.get_player_ticket() > 0:
-                    result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+                    result += str(player.get_player_ticket()) + \
+                                  '  ' + player.get_player_nn() + '\n'
             self.game_status = 7
             briefing += '平票\n进入第二阶段投票'
         else:
             for player in self.alive_player_list:
                 player.set_player_status(2)
                 if player.get_player_ticket() > 0:
-                    result += str(player.get_player_ticket()) + '  ' + player.get_player_nn() + '\n'
+                    result += str(player.get_player_ticket()) + \
+                                  '  ' + player.get_player_nn() + '\n'
             self.game_status = 2
             briefing += '平票\n请私戳法官进行夜间行动'
         send_message(self.game_id, result)
@@ -385,7 +403,7 @@ class Game(object):
         good_list = []
         bad_list = []
         for player in self.get_alive_player_list():
-            if player.get_player_character() in [Character.ss, Character.mfs, Character.sl]:
+            if not player.get_player_faction():
                 bad_list.append(player)
             else:
                 good_list.append(player)
@@ -429,6 +447,7 @@ class Player(object):
         self.player_banned = False
         self.player_muted = False
         self.player_ticket = 0
+        self.player_faction = True
 
     def get_player_id(self):
         return self.player_id
@@ -510,6 +529,12 @@ class Player(object):
 
     def add_ticket(self):
         self.player_ticket += 1
+
+    def get_player_faction(self):
+        return self.player_faction
+
+    def set_player_faction(self, player_faction):
+        self.player_faction = player_faction
 
     def death(self):
         self.set_player_status(0)
