@@ -108,7 +108,7 @@ class Game(object):
                 break
         if not is_alive_player:
             send_message(player_id, '\n'.join(player.player_nn + '的身份是：' +
-                         player.player_character for player in self.player_list))
+                         player.player_character.value for player in self.player_list))
 
     def start(self):
         random.shuffle(self.player_list)
@@ -167,7 +167,6 @@ class Game(object):
                         break
                 if can_act:
                     self.night_action(player, None)
-                    self.actioned_player += 1
         if self.actioned_player == len(self.alive_player_list):
             self.game_status = 3
             self.night_settlement()
@@ -176,6 +175,7 @@ class Game(object):
         player.set_player_aims(target.get_player_seat())
         player.set_player_target(target.get_player_seat())
         player.set_player_status(3)
+        self.actioned_player += 1
         send_message(player.get_player_id(), '行动目标设置为：' +
                      str(player.get_player_target()))
 
@@ -548,7 +548,10 @@ GAME_LIST = []
 def send_message(dest, content):
     time.sleep(0.2)
     print(content + ' is being sent to ' + dest)
-    itchat.send(msg=content, toUserName=dest)
+    try:
+        itchat.send(msg=content, toUserName=dest)
+    except TimeoutError:
+        send_message(dest, content)
 
 
 def create_game(group_id):
@@ -602,18 +605,25 @@ def main():
                     send_message(msg['FromUserName'], '投票阶段开始')
                 elif game.get_game_status() in [5, 7]:
                     game.day_control(msg['ActualUserName'], msg['Content'])
-                if content == '重发身份':
+                elif content == '重发身份':
                     for player in game.get_player_list():
                         send_message(player.get_player_id(), '您的身份是：\n' + player.get_player_character().value)
                 elif content == '玩家数量':
                     send_message(msg['FromUserName'], '当前玩家数量：' + str(len(game.get_player_list())))
                 elif content == '玩家列表':
-                    player_list_str = '当前玩家列表：\n'
-                    for seat, player in enumerate(game.player_list):
-                        player_list_str += str(seat) + '  ' + (player.get_player_nn()) + '\n'
+                    if game.get_game_status() == 0:
+                        player_list_str = '当前玩家列表：\n'
+                        for seat, player in enumerate(game.get_player_list()):
+                            player_list_str += str(seat + 1) + '  ' + (player.get_player_nn()) + '\n'
+                    else:
+                        player_list_str = '当前存活玩家列表：\n'
+                        for seat, player in enumerate(game.get_alive_player_list()):
+                            player_list_str += str(player.get_player_seat()) + '  ' + (player.get_player_nn()) + '\n'
                     send_message(msg['FromUserName'], player_list_str)
                 elif content == '游戏状态':
                     send_message(msg['FromUserName'], '当前游戏状态为：' + str(game.get_game_status()))
+                elif content == '行动玩家':
+                    pass
                 elif msg["ActualNickName"] == 'INT.ZC' and content == '强制加入':
                     search_result = msg['User'].search_member(msg['Content'].split()[1])
                     if len(search_result) == 1:
