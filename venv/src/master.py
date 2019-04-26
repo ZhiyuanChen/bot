@@ -373,7 +373,7 @@ class Game(object):
             for player in self.alive_player_list:
                 player.set_player_status(2)
                 if player.get_player_ticket() > 0:
-                    result += str(player.get_player_ticket()) + \
+                    result += str(player.get_player_seat()) + \
                                   '  ' + player.get_player_nn() + '\n'
             voted_player_list[0].death()
             self.alive_player_list.remove(voted_player_list[0])
