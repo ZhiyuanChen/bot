@@ -567,7 +567,7 @@ def create_game(group_id):
 
 
 def main():
-    itchat.auto_login(hotReload=True, enableCmdQR=False)
+    itchat.auto_login(hotReload=True, enableCmdQR=2)
 
     @itchat.msg_register(itchat.content.TEXT, isGroupChat=True)
     def group_op(msg):

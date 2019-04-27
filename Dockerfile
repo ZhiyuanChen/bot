@@ -4,7 +4,7 @@ LABEL maintainer="Zhiyuan Chen <zc@int.ac.cn>"
 
 ENV HHD=/usr/local/hdd
 RUN mkdir HHD
-COPY src HHD
+COPY src $HHD/src
 WORKDIR $HHD/src
 
 RUN apk add --update python3
