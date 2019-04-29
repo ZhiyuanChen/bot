@@ -297,7 +297,10 @@ class Game(object):
             self.night_settlement()
 
     def night_action(self, player, target_player):
-        player.player_aim = target_player.player_seat
+        if target_player is not None:
+            player.player_aim = target_player.player_seat
+        else:
+            player.player_aim = 0
         player.player_target = target_player
         player.player_status = PlayerStatus.actioned
         self.actioned_player_set.add(player)
@@ -348,9 +351,9 @@ class Game(object):
 
         if self.jc.player_status != PlayerStatus.dead:
             if self.jc.player_target is not None:
-                send_message(self.jc.player_id, '昨晚的查验结果：\n' + '非坏特殊' if self.jc.player_target.player_faction() else '坏特殊')
+                send_message(self.jc.player_id, '查验结果：\n' + ('非坏特殊' if self.jc.player_target.player_faction() else '坏特殊'))
             elif self.jc.player_aim != 0:
-                send_message(self.jc.player_id, '昨晚的查验结果：\n失败')
+                send_message(self.jc.player_id, '查验结果：\n失败')
 
         # if 'wy' in locals():
         #     if self.wy.player_target is not None:
@@ -451,8 +454,7 @@ class Game(object):
         briefing = '投票阶段结束\n'
         if voted_player_list[0].player_tickets > voted_player_list[1].player_tickets:
             self.player_dead(voted_player_list[0])
-            briefing += '玩家：' + \
-                voted_player_list[0].player_nn + ' 死亡\n' + '公布身份为： '
+            briefing += '玩家：' + voted_player_list[0].player_nn + ' 死亡\n' + '公布身份为： '
             if not voted_player_list[0].player_faction():
                 briefing += '坏特殊\n没有遗言'
             else:
