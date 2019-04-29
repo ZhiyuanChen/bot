@@ -453,16 +453,16 @@ class Game(object):
         result = '投票结果:\n'
         briefing = '投票阶段结束\n'
         if voted_player_list[0].player_tickets > voted_player_list[1].player_tickets:
+            for player in self.alive_player_set:
+                player.player_status = PlayerStatus.alive
+                if player.player_tickets > 0:
+                    result += str(player.player_seat) + '  ' + player.player_nn + '\n'
             self.player_dead(voted_player_list[0])
             briefing += '玩家：' + voted_player_list[0].player_nn + ' 死亡\n' + '公布身份为： '
             if not voted_player_list[0].player_faction():
                 briefing += '坏特殊\n没有遗言'
             else:
                 briefing += '非坏特殊\n请在滴声之后留下遗言：'
-            for player in self.alive_player_set:
-                player.player_status = PlayerStatus.alive
-                if player.player_tickets > 0:
-                    result += str(player.player_seat) + '  ' + player.player_nn + '\n'
             self.game_status = GameStatus.action
         elif voted_player_list[0].player_tickets == voted_player_list[1].player_tickets and self.game_status == GameStatus.count_one:
             for player in self.alive_player_set:
