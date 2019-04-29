@@ -1,13 +1,12 @@
-FROM python:3.6-alpine
+FROM alpine
 
 LABEL maintainer="Zhiyuan Chen <zc@int.ac.cn>"
 
 ENV HHD=/usr/local/hdd
 RUN mkdir HHD
-COPY src HHD
+COPY src $HHD/src
 WORKDIR $HHD/src
 
-RUN apk add --no-cache gcc musl-dev
-RUN pip install itchat
+RUN apk add --update python3
+RUN pip3 install itchat
 
-ENTRYPOINT ["bash", "-c", "python $HHD/src/main.py"]
